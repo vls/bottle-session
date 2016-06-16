@@ -112,6 +112,7 @@ class Session(object):
     def __init__(self,rdb,cookie_name='bottle.session',cookie_lifetime=None,cookie_domain=None):
         self.rdb = rdb
         self.cookie_name = cookie_name
+        self.cookie_domain = cookie_domain
         if cookie_lifetime is None:
             self.ttl = MAX_TTL
             self.max_age = None
@@ -123,7 +124,6 @@ class Session(object):
             self.validate_session_id(cookie_value)
         else:
             self.new_session_id()
-        self.cookie_domain = cookie_domain
 
         
     def get_cookie(self):
