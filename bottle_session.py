@@ -42,7 +42,7 @@ class SessionPlugin(object):
     name = 'session'
     api = 2
 
-    def __init__(self,host='localhost',port=6379,db=0,cookie_name='bottle.session',cookie_lifetime=300,keyword='session'):
+    def __init__(self,host='localhost',port=6379,db=0,cookie_name='bottle.session',cookie_lifetime=300,keyword='session',cookie_domain=None):
         """Session plugin for the bottle framework.
 
         Args:
@@ -73,6 +73,7 @@ class SessionPlugin(object):
         self.cookie_lifetime = cookie_lifetime
         self.keyword = keyword
         self.connection_pool = None
+        self.cookie_domain = cookie_domain
 
     def setup(self,app):
         for other in app.plugins:
@@ -93,7 +94,7 @@ class SessionPlugin(object):
 
         def wrapper(*args,**kwargs):
             r = redis.Redis(connection_pool=self.connection_pool)
-            kwargs[self.keyword] = Session(r,self.cookie_name,self.cookie_lifetime)
+            kwargs[self.keyword] = Session(r,self.cookie_name,self.cookie_lifetime,cookie_domain=self.cookie_domain)
             rv = callback(*args,**kwargs)
             return rv
         return wrapper
@@ -108,7 +109,7 @@ class Session(object):
     the plugin.
     """
 
-    def __init__(self,rdb,cookie_name='bottle.session',cookie_lifetime=None):
+    def __init__(self,rdb,cookie_name='bottle.session',cookie_lifetime=None,cookie_domain=None):
         self.rdb = rdb
         self.cookie_name = cookie_name
         if cookie_lifetime is None:
@@ -122,6 +123,7 @@ class Session(object):
             self.validate_session_id(cookie_value)
         else:
             self.new_session_id()
+        self.cookie_domain = cookie_domain
 
         
     def get_cookie(self):
@@ -129,7 +131,12 @@ class Session(object):
         return uid_cookie
 
     def set_cookie(self,value):
-        response.set_cookie(self.cookie_name,value,max_age=self.max_age,path='/')
+        options = {}
+        options['max_age'] = self.max_age
+        options['path'] = '/'
+        if self.cookie_domain is not None:
+            options['domain'] = self.cookie_domain
+        response.set_cookie(self.cookie_name,value,**options)
 
     def validate_session_id(self,cookie_value):
         keycheck = 'session:%s'%str(uuid.UUID(cookie_value))
