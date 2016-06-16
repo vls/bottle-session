@@ -72,7 +72,7 @@ class SessionPlugin(object):
         self.cookie_lifetime = cookie_lifetime
         self.keyword = keyword
         self.connection_pool = None
-        self.cookie_domain = None
+        self.cookie_domain = cookie_domain
 
     def setup(self,app):
         for other in app.plugins:
