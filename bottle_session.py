@@ -10,7 +10,8 @@ on the website: https://bitbucket.org/devries/bottle-session
 Copyright (c) 2013, Christopher De Vries.
 License: Artistic License 2.0 (see LICENSE.txt)
 """
-from __future__ import absolute_import
+
+__version__ = '0.4'
 
 import redis
 import inspect
@@ -18,8 +19,6 @@ from bottle import PluginError
 from bottle import request
 from bottle import response
 import uuid
-
-__version__ = '0.5'
 
 try:
     from Crypto.Random import get_random_bytes
@@ -73,7 +72,7 @@ class SessionPlugin(object):
         self.cookie_lifetime = cookie_lifetime
         self.keyword = keyword
         self.connection_pool = None
-        self.cookie_domain = cookie_domain
+        self.cookie_domain = None
 
     def setup(self,app):
         for other in app.plugins:
@@ -94,7 +93,7 @@ class SessionPlugin(object):
 
         def wrapper(*args,**kwargs):
             r = redis.Redis(connection_pool=self.connection_pool)
-            kwargs[self.keyword] = Session(r,self.cookie_name,self.cookie_lifetime,cookie_domain=self.cookie_domain)
+            kwargs[self.keyword] = Session(r,self.cookie_name,self.cookie_lifetime,self.cookie_domain)
             rv = callback(*args,**kwargs)
             return rv
         return wrapper
@@ -134,7 +133,7 @@ class Session(object):
         options = {}
         options['max_age'] = self.max_age
         options['path'] = '/'
-        if self.cookie_domain is not None:
+        if self.cookie_domain:
             options['domain'] = self.cookie_domain
         response.set_cookie(self.cookie_name,value,**options)
 
@@ -211,11 +210,7 @@ class Session(object):
         """
 
         self.rdb.expire(self.session_hash,self.ttl)
-        encoded_result = self.rdb.hget(self.session_hash,key)
-        if encoded_result is None:
-            return None
-        else:
-            return encoded_result.decode('utf-8')
+        return self.rdb.hget(self.session_hash,key)
 
     def __setitem__(self,key,value):
         """Set an existing or new key, value association.
@@ -245,8 +240,8 @@ class Session(object):
         """
 
         all_items = self.rdb.hgetall(self.session_hash)
-        for k, v in list(all_items.items()):
-            yield (k.decode('utf-8'),v.decode('utf-8'))
+        for t in all_items.items():
+            yield t
 
     def get(self,key,default=None):
         """Get a value from the dictionary.
@@ -284,8 +279,8 @@ class Session(object):
         Returns:
             list of tuples: [(key1,value1),(key2,value2),...,(keyN,valueN)]
         """
-        all_items = [(k.decode('utf-8'),v.decode('utf-8')) for k,v in self.rdb.hgetall(self.session_hash)]
-        return all_items
+        all_items = self.rdb.hgetall(self.session_hash)
+        return all_items.items()
 
     def keys(self):
         """Return a list of all keys in the dictionary.
@@ -293,8 +288,8 @@ class Session(object):
         Returns:
             list of str: [key1,key2,...,keyN]
         """
-        all_keys = [k.decode('utf-8') for k,v in self.rdb.hgetall(self.session_hash)]
-        return all_keys
+        all_items = self.rdb.hgetall(self.session_hash)
+        return all_items.keys()
 
     def values(self):
         """Returns a list of all values in the dictionary.
@@ -302,6 +297,6 @@ class Session(object):
         Returns:
             list of str: [value1,value2,...,valueN]
         """
-        all_values = [v.decode('utf-8') for k,v in self.rdb.hgetall(self.session_hash)]
-        return all_values
+        all_items = self.rdb.hgetall(self.session_hash)
+        return all_items.values()
 
